@@ -1,0 +1,26 @@
+# Archivos con credenciales y datos sensibles
+credentials.txt
+padel_groups.txt
+
+# Cookies y archivos temporales
+*_cookies.txt
+*.log
+
+# Archivos de debug
+/tmp/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Archivos de backup
+*.bak
+*.backup
