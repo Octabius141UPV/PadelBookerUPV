@@ -16,11 +16,11 @@ Script que automatiza la reserva de pistas de pádel en la intranet de la UPV, e
 - 👥 **Soporte multi-cuenta** para reservar con varios usuarios
 - 🧪 **Modo dry-run** para probar sin reservar
 - 🐛 **Modo debug** para diagnóstico
-- ☁️ **Listo para GCP** con script de instalación y servicio systemd
+- ☁️ **Despliegue en GCP** con Cloud Functions (~$0.01/mes) o VM
 
 ## 📋 Requisitos
 
-- `bash` 4.0 o superior
+- `bash` 4.0 o superior (solo para script local)
 - `curl`
 - `python3`
 - Cuenta de alumno/PAS/PDI en la UPV
@@ -115,7 +115,47 @@ Edita las variables al inicio de `multiPadelBooker.sh`:
 
 ## ☁️ Despliegue en Google Cloud Platform
 
-### 1. Crear VM en GCP
+Hay dos opciones para desplegar en GCP:
+
+| Opción | Coste | Ventajas |
+|--------|-------|----------|
+| **Cloud Functions** (recomendado) | ~$0.01/mes | Serverless, solo paga por ejecución |
+| VM con systemd | ~$6-8/mes | Más control, pero desperdicio de recursos |
+
+### Opción A: Cloud Functions + Cloud Scheduler (Recomendado) ⭐
+
+La opción más económica. Solo se ejecuta cuando toca reservar.
+
+```bash
+chmod +x deploy_cloud.sh
+./deploy_cloud.sh
+```
+
+El script te preguntará:
+- Proyecto de GCP
+- Credenciales UPV (alias, DNI, contraseña)
+- Horario a reservar (ej: 20:00-21:00)
+- Días de la semana (martes y jueves por defecto)
+- Hora de ejecución (09:00 por defecto)
+
+**Comandos útiles:**
+
+```bash
+# Ver logs
+gcloud functions logs read padel-booker --region=europe-southwest1 --gen2
+
+# Ejecutar manualmente (test)
+gcloud scheduler jobs run padel-booker-trigger --location=europe-southwest1
+
+# Cambiar horario de pádel
+gcloud functions deploy padel-booker --region=europe-southwest1 --update-env-vars=PADEL_SCHEDULE=19:00-20:00
+```
+
+### Opción B: VM con systemd
+
+Más cara pero útil si ya tienes una VM para otros servicios.
+
+#### 1. Crear VM en GCP
 
 ```bash
 gcloud compute instances create padel-booker \
@@ -125,48 +165,29 @@ gcloud compute instances create padel-booker \
   --image-project=debian-cloud
 ```
 
-### 2. Subir archivos
+#### 2. Subir archivos
 
 ```bash
-gcloud compute scp multiPadelBooker.sh credentials.txt padel_groups.txt setup_gcp.sh padel-booker:~/ --zone=europe-southwest1-a
+gcloud compute scp multiPadelBooker.sh setup_gcp.sh padel-booker:~/ --zone=europe-southwest1-a
 ```
 
-### 3. Conectar e instalar
+#### 3. Conectar e instalar
 
 ```bash
 gcloud compute ssh padel-booker --zone=europe-southwest1-a
-```
-
-```bash
 chmod +x setup_gcp.sh
 ./setup_gcp.sh
 ```
 
-### 4. Gestionar el servicio
+El script te preguntará tus credenciales y configuración.
+
+#### 4. Gestionar el servicio
 
 ```bash
-# Iniciar
-sudo systemctl start padelBooker
-
-# Ver estado
-sudo systemctl status padelBooker
-
-# Ver logs en tiempo real
-sudo tail -f /var/log/padelBooker.log
-
-# Habilitar inicio automático
-sudo systemctl enable padelBooker
-
-# Detener
-sudo systemctl stop padelBooker
-```
-
-### 5. Editar configuración
-
-```bash
-sudo nano /opt/padelBooker/credentials.txt
-sudo nano /opt/padelBooker/padel_groups.txt
-sudo systemctl restart padelBooker
+sudo systemctl start padelBooker     # Iniciar
+sudo systemctl status padelBooker    # Ver estado
+sudo systemctl enable padelBooker    # Inicio automático
+sudo tail -f /var/log/padelBooker.log  # Ver logs
 ```
 
 ## 🔧 Troubleshooting
@@ -193,14 +214,17 @@ sudo systemctl restart padelBooker
 
 ```
 PadelBookerUPV/
-├── multiPadelBooker.sh      # Script principal
-├── setup_gcp.sh             # Instalador para GCP
-├── credentials.txt          # Tus credenciales (NO commitear)
+├── multiPadelBooker.sh      # Script principal (bash)
+├── deploy_cloud.sh          # Despliegue Cloud Functions (recomendado)
+├── setup_gcp.sh             # Instalador para VM
+├── cloud_function/          # Código Cloud Function
+│   ├── main.py
+│   └── requirements.txt
 ├── credentials.example.txt  # Ejemplo de credenciales
-├── padel_groups.txt         # Tus horarios (NO commitear)
 ├── padel_groups.example.txt # Ejemplo de horarios
-├── .gitignore               # Archivos ignorados
-└── README.md                # Este archivo
+├── .gitignore
+├── LICENSE
+└── README.md
 ```
 
 ## 🤝 Contribuir
